@@ -1,6 +1,9 @@
+import numpy as np
 import pandas as pd
-
-
+from tqdm import tqdm
+import multiprocessing as mp
+from tqdm import tqdm
+import os
 def load_sign_dataset(filepath):
     # Load only the required columns if they exist in the file
     cols = [
@@ -79,9 +82,51 @@ def number_of_x(input_row, df, feature_cols, bool_fn):
     return count
 
 
+def _init_pool(df_, feature_cols_):
+    # share these in each worker so we don't pickle them for every task
+    global _df, _feature_cols, _n
+    _df = df_
+    _feature_cols = feature_cols_
+    _n = len(_df)
+
+
+def _compute_row(i):
+    """
+    For a given i, compute (i, j, diff) for all j > i.
+    """
+    row_i = _df.iloc[i][_feature_cols].fillna("NA").astype(str)
+    out = []
+    for j in range(i + 1, _n):
+        row_j = _df.iloc[j][_feature_cols].fillna("NA").astype(str)
+        both_na = (row_i == "NA") & (row_j == "NA")
+        diff = int(((row_i != row_j) & ~both_na).sum())
+        out.append((i, j, diff))
+    return out
+
+
+def distance_matrix_upper_parallel(df, feature_cols, n_jobs=24):
+    """
+    Parallel upper‐triangular distance matrix using n_jobs workers.
+    """
+    n = len(df)
+    idx = df.index
+    dist_mat = pd.DataFrame(index=idx, columns=idx, dtype="Int64")
+
+    # set diagonal = 0
+    diag_ix = np.arange(n)
+    dist_mat.values[diag_ix, diag_ix] = 0
+
+    # launch pool, each worker gets a reference to df and feature_cols
+    with mp.Pool(processes=n_jobs, initializer=_init_pool, initargs=(df, feature_cols)) as pool:
+        # map i↦row‐results in parallel
+        for row_results in tqdm(pool.imap(_compute_row, range(n)), total=n):
+            for i, j, diff in row_results:
+                dist_mat.iat[i, j] = diff
+
+    return dist_mat
 
 if __name__ == "__main__":
-    file_path = "data/signdata.csv"
+    file_path = "data/signdata_slimmed.csv"
 
     # List of features to compare
     feature_cols = [
@@ -95,7 +140,7 @@ if __name__ == "__main__":
     df = load_sign_dataset(file_path)
 
     # Demo: Compare two rows (e.g., rows 2 and 3)
-    idx1, idx2 = 2394, 269
+    idx1, idx2 = 2000, 269
     num_matches, total_compared, results = sign_similarity(df.iloc[idx1], df.iloc[idx2], feature_cols)
     num_differences, total_compared, results = sign_differences(df.iloc[idx1], df.iloc[idx2], feature_cols)
 
@@ -114,6 +159,21 @@ if __name__ == "__main__":
     n_exact_matches = number_of_x(input_row, df, feature_cols, lambda x: x == 0)
     print(f"Number of exact matches: {n_exact_matches}")
 
-    n_within_2 = number_of_x(input_row, df, feature_cols, lambda x: x <= 2)
-    print(f"Number of signs within 2 differences: {n_within_2}")
+    dist_full = distance_matrix_upper_parallel(df, feature_cols)
+    os.makedirs("data", exist_ok=True)
 
+    # write as a tab-separated text file (with row and column labels)
+    output_path = "data/distanceMatrix.txt"
+    dist_full.to_csv(output_path, sep="\t", na_rep="NA")
+    print(f"Distance matrix saved to {output_path}")
+
+    print(dist_full)
+
+    # for i in range(df.shape[0]):
+    #     n_within_1 = number_of_x(input_row, df, feature_cols, lambda x: x <= 1)
+    #     if n_within_1 > 1:
+    #         print(f"Row {i} has {n_within_1} matches within 1 difference")
+    #     else:
+    #         print(f"Row {i} has no matches within 1 difference")
+    #
+    # print("done")

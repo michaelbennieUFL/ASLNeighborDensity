@@ -1,0 +1,17 @@
+Column,UniqueCount,Values
+SelectedFingers.2.0,12,i;im;imp;imr;imrp;ip;m;mr;mrp;p;r;t
+Flexion.2.0,7,Bent;Crossed;Curved;Flat;FullyClosed;FullyOpen;Stacked
+FlexionChange.2.0,2,0.0;1.0
+Spread.2.0,2,0.0;1.0
+SpreadChange.2.0,2,0.0;1.0
+ThumbPosition.2.0,2,Closed;Open
+ThumbContact.2.0,2,0.0;1.0
+SignType.2.0,6,AsymmetricalDifferentHandshape;AsymmetricalSameHandshape;DominanceViolation;OneHanded;SymmetricalOrAlternating;SymmetryViolation
+Movement.2.0,7,BackAndForth;Circular;Curved;Other;Straight;X-shaped;Z-shaped
+RepeatedMovement.2.0,2,0;1
+MajorLocation.2.0,6,Arm;Body;Hand;Head;Neutral;Other
+MinorLocation.2.0,37,ArmAway;BodyAway;CheekNose;Chin;Clavicle;ElbowBack;Eye;FingerBack;FingerFront;FingerRadial;FingerTip;FingerUlnar;ForearmBack;ForearmFront;ForearmUlnar;Forehead;HandAway;HeadAway;HeadTop;Heel;Hips;Mouth;Neck;Neutral;Other;Palm;PalmBack;Shoulder;TorsoBottom;TorsoMid;TorsoTop;UnderChin;UpperArm;UpperLip;Waist;WristBack;WristFront
+SecondMinorLocation.2.0,37,ArmAway;BodyAway;CheekNose;Chin;Clavicle;ElbowBack;Eye;FingerBack;FingerFront;FingerRadial;FingerTip;FingerUlnar;ForearmBack;ForearmFront;ForearmRadial;ForearmUlnar;Forehead;HandAway;HeadAway;HeadTop;Heel;Hips;Mouth;Neck;Neutral;Other;OtherAway;Palm;PalmBack;Shoulder;TorsoBottom;TorsoMid;TorsoTop;UnderChin;UpperArm;UpperLip;Waist
+Contact.2.0,2,0;1
+NonDominantHandshape.2.0,56,1;3;4;5;8;A;B;C;DominanceConditionViolation;Lax;O;S;SymmetryViolation;a;baby_o;bent_1;bent_l;bent_v;c;closed_b;curved_1;curved_4;curved_5;curved_b;curved_l;curved_v;e;f;flat_1;flat_4;flat_b;flat_h;flat_horns;flat_m;flat_o;flat_v;flatspread_5;g;h;horns;i;ily;l;o;open_8;open_b;open_e;open_h;p;r;s;spread_open_e;stacked_5;v;w;y
+UlnarRotation.2.0,2,0;1
