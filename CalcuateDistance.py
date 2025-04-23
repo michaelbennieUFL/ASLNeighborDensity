@@ -81,8 +81,7 @@ def number_of_x(input_row, df, feature_cols, bool_fn):
 
 
 if __name__ == "__main__":
-    # Change to your file path
-    file_path = "data/signdata.csv"  # Or your actual file location
+    file_path = "data/signdata.csv"
 
     # List of features to compare
     feature_cols = [
@@ -96,7 +95,7 @@ if __name__ == "__main__":
     df = load_sign_dataset(file_path)
 
     # Demo: Compare two rows (e.g., rows 2 and 3)
-    idx1, idx2 = 2, 0
+    idx1, idx2 = 2394, 269
     num_matches, total_compared, results = sign_similarity(df.iloc[idx1], df.iloc[idx2], feature_cols)
     num_differences, total_compared, results = sign_differences(df.iloc[idx1], df.iloc[idx2], feature_cols)
 
