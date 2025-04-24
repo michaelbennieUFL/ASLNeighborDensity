@@ -81,28 +81,24 @@ if __name__ == "__main__":
         total=6013
     )
 
-    # 4. 組成 DataFrame 並輸出
-    df_check = pd.DataFrame.from_records(records)
 
-    df_check = pd.DataFrame.from_records(records)
+    # 4. 組成 DataFrame 並 merge
+    df_check = pd.DataFrame.from_records(records).set_index("fake_index")
+    df_merged = fake_df.join(df_check, how="inner")
 
-    # 把 fake_df 和 df_check 依照 fake_index 合併
-    df_check = df_check.set_index("fake_index", drop=False)
-    df_merged = fake_df.join(
-        df_check,
-        how="inner",
-        lsuffix="", rsuffix="_chk"
+    # 過濾
+    sel = (~df_merged["duplicate_in_real"]) & (df_merged["stored_count"] >= 2)
+    df_sel = df_merged.loc[sel].copy()
+
+    # **重要：把 neighbors[list] 換成我們新算出來的那欄 neighbors**
+    df_sel["neighbors[list]"] = df_sel["neighbors"].apply(
+        lambda s: "[" + ",".join(sorted(s)) + "]"
     )
 
-    # 過濾：duplicate_in_real == False 且 stored_count >= 2
-    sel = (~df_merged["duplicate_in_real"]) & (df_merged["stored_count"] >= 2)
-    df_sel = df_merged.loc[sel]
-
-    # 我們要的欄位依序是：
-    #   neighbor_count, neighbors[list], 然後是所有 feature 欄位
+    # 準備要輸出的欄位順序
     out_cols = ["neighbor_count", "neighbors[list]"] + FEATURE_COLS
 
-    # 輸出成 TSV，不要 index
+    # 輸出 TSV
     df_sel.to_csv(
         "data/filtered_fake_words.tsv",
         sep="\t",
@@ -110,6 +106,6 @@ if __name__ == "__main__":
         index=False,
         encoding="utf-8"
     )
-
     print(f"Saved {len(df_sel)} rows to filtered_fake_words.tsv")
+
 
