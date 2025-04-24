@@ -64,15 +64,16 @@ def generatePossibleFakeWords(firstPhonemeicTranscription:List[str],secondPhonem
             if check_if_different_and_not_nan(common_index,firstPhonemeicTranscription,secondPhonemeicTranscription):
                 unequal_indicies.append(common_index)
             common_index+=1
-        for index in unequal_indicies:
-            for phoneme in categories[index-2]:
-                if (check_if_different_and_not_nan(index, firstPhonemeicTranscription,
-                                                  secondPhonemeicTranscription)
-                        and len(categories[index - 2]) > 2):
-                    new_fake_word = firstPhonemeicTranscription.copy()
-                    new_fake_word.iloc[0]+="*"
-                    new_fake_word.iloc[index] = phoneme
-                    possibleFakeWords.append(new_fake_word)
+
+        new_fake_word = firstPhonemeicTranscription.copy()
+        new_fake_word.iloc[unequal_indicies[0]] = secondPhonemeicTranscription.iloc[unequal_indicies[0]]
+        new_fake_word.iloc[0]+="*"
+        possibleFakeWords.append(new_fake_word)
+
+        new_fake_word = secondPhonemeicTranscription.copy()
+        new_fake_word.iloc[unequal_indicies[0]] = firstPhonemeicTranscription.iloc[unequal_indicies[0]]
+        new_fake_word.iloc[0]+="*"
+        possibleFakeWords.append(new_fake_word)
 
 
     return possibleFakeWords

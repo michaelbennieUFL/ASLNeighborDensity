@@ -1,80 +1,115 @@
 import pandas as pd
 import CalcuateDistance as cd
+from tqdm.contrib.concurrent import process_map
 
-def validate_fake_neighbors(
-    fake_file: str,
-    sign_dataset_file: str,
-    feature_cols: list = None
-) -> pd.DataFrame:
+# 預設要比較的 feature 欄位
+FEATURE_COLS = [
+    "SelectedFingers.2.0", "Flexion.2.0", "FlexionChange.2.0",
+    "Spread.2.0", "SpreadChange.2.0", "ThumbPosition.2.0",
+    "ThumbContact.2.0", "SignType.2.0", "Movement.2.0",
+    "RepeatedMovement.2.0", "MajorLocation.2.0", "MinorLocation.2.0",
+    "SecondMinorLocation.2.0", "Contact.2.0",
+    "NonDominantHandshape.2.0", "UlnarRotation.2.0"
+]
+
+def parse_neighbors(neigh_str: str) -> list:
     """
-    驗證每個假詞的「距離＝1 鄰居」是否和 TSV 中存的相符，
-    並檢查假詞的特徵組合是否已存在於真實手語資料集中。
-
-    參數:
-      fake_file: 先前產生的假詞 TSV 檔路徑（必須包含 'neighbors[list]' 欄位）。
-      sign_dataset_file: 真實手語資料集路徑（CSV，包含 LemmaID, Code 及所有 feature）。
-      feature_cols: 欲比對的 feature 欄位清單；若為 None，會用 CalculateDistance 裡的預設欄位。
-    回傳:
-      pd.DataFrame，每一列對應假詞的一筆驗證結果。
+    將 TSV 欄位形式的 "[L1;C1,L2;C2,...]" 轉成 list of "LemmaID;Code"
     """
-    # 1. 讀真實資料集
-    df_real = cd.load_sign_dataset(sign_dataset_file)
+    s = neigh_str.strip()[1:-1]
+    return s.split(',') if s else []
 
-    # 2. feature 欄位預設
-    if feature_cols is None:
-        feature_cols = [
-            "SelectedFingers.2.0", "Flexion.2.0", "FlexionChange.2.0",
-            "Spread.2.0", "SpreadChange.2.0", "ThumbPosition.2.0",
-            "ThumbContact.2.0", "SignType.2.0", "Movement.2.0",
-            "RepeatedMovement.2.0", "MajorLocation.2.0", "MinorLocation.2.0",
-            "SecondMinorLocation.2.0", "Contact.2.0",
-            "NonDominantHandshape.2.0", "UlnarRotation.2.0"
-        ]
+def process_item(item):
+    """
+    處理單筆 fake_df.iterrows() 傳來的 (idx, row)，回傳一筆 record dict。
+    會使用全域變數 df_real, FEATURE_COLS。
+    """
+    idx, row = item
 
-    # 3. 讀假詞 TSV
-    fake_df = pd.read_csv(fake_file, sep='\t', encoding='utf-8')
+    input_feats = row[FEATURE_COLS].fillna("NA").astype(str)
+    # 計算與真實資料集每列的差異數
+    diffs = cd.vector_of_differences(input_feats, df_real, FEATURE_COLS)
 
-    # 解析 neighbors[list] 欄位
-    def parse_neighbors(neigh_str: str) -> list:
-        s = neigh_str.strip()[1:-1]
-        return s.split(',') if s else []
 
-    records = []
-    for idx, row in fake_df.iterrows():
-        # 特徵向量
-        input_feats = row[feature_cols].fillna("NA").astype(str)
-        # 計算與真實資料集中每列的差異數
-        diffs = cd.vector_of_differences(input_feats, df_real, feature_cols)
+    neighbor_idxs = [i for i, d in enumerate(diffs) if d == 1]
+    computed_codes = {
+        f"{df_real.iloc[i]['LemmaID']};{df_real.iloc[i]['Code']}"
+        for i in neighbor_idxs
+    }
 
-        # 找出所有差異=1 的真實詞索引
-        neighbor_idxs = [i for i, d in enumerate(diffs) if d == 1]
-        # 由 idx 取出 LemmaID;Code
-        computed_codes = {
-            f"{df_real.iloc[i]['LemmaID']};{df_real.iloc[i]['Code']}"
-            for i in neighbor_idxs
-        }
+    stored_codes = set(parse_neighbors(row["neighbors[list]"]))
 
-        # TSV 裡存的 neighbors
-        stored_codes = set(parse_neighbors(row["neighbors[list]"]))
+    duplicate = any(d == 0 for d in diffs)
 
-        # 是否有在真實裡「完全相同」（diff=0）
-        duplicate = any(d == 0 for d in diffs)
+    if duplicate:
+        print(f"WARNING: Fake word {idx} has exact matches!")
 
-        records.append({
-            "fake_index": idx,
-            "neighbor_count": len(computed_codes),
-            "stored_count":    len(stored_codes),
-            "counts_match":    (len(computed_codes) == len(stored_codes)),
-            "neighbors_match": (computed_codes == stored_codes),
-            "duplicate_in_real": duplicate
-        })
+    if  not all(x in computed_codes for x in stored_codes):
+        print(f"FAILURE: Fake word {idx}:")
+        print(f"  computed_codes: {computed_codes}")
+        print(f"  stored_codes:   {stored_codes}")
+        print(f"  duplicate:      {duplicate}")
+        print()
 
-    return pd.DataFrame.from_records(records)
-
+    return {
+        "fake_index": idx,
+        "neighbor_count":     len(computed_codes),
+        "stored_count":       len(stored_codes),
+        "counts_match":       (len(computed_codes) == len(stored_codes)),
+        "neighbors_match":    (computed_codes == stored_codes),
+        "neighbors": computed_codes,
+        "duplicate_in_real":  duplicate
+    }
 
 if __name__ == "__main__":
-    df_check = validate_fake_neighbors(
-        fake_file="data/fake_words.tsv",
-        sign_dataset_file="data/signdata_slimmed.csv"
+    # 檔案路徑
+    fake_file = "data/fake_words.tsv"
+    sign_dataset_file = "data/signdata_slimmed.csv"
+
+    # 1. 讀真實手語資料
+    df_real = cd.load_sign_dataset(sign_dataset_file)
+
+    # 2. 讀假詞 TSV
+    fake_df = pd.read_csv(fake_file, sep='\t', encoding='utf-8')
+
+    # 3. 平行處理 + tqdm 顯示進度
+    # total 設為 384263，max_workers 設為 16
+    records = process_map(
+        process_item,
+        fake_df.iterrows(),
+        max_workers=22,
+        total=6013
     )
-    print(df_check)
+
+    # 4. 組成 DataFrame 並輸出
+    df_check = pd.DataFrame.from_records(records)
+
+    df_check = pd.DataFrame.from_records(records)
+
+    # 把 fake_df 和 df_check 依照 fake_index 合併
+    df_check = df_check.set_index("fake_index", drop=False)
+    df_merged = fake_df.join(
+        df_check,
+        how="inner",
+        lsuffix="", rsuffix="_chk"
+    )
+
+    # 過濾：duplicate_in_real == False 且 stored_count >= 2
+    sel = (~df_merged["duplicate_in_real"]) & (df_merged["stored_count"] >= 2)
+    df_sel = df_merged.loc[sel]
+
+    # 我們要的欄位依序是：
+    #   neighbor_count, neighbors[list], 然後是所有 feature 欄位
+    out_cols = ["neighbor_count", "neighbors[list]"] + FEATURE_COLS
+
+    # 輸出成 TSV，不要 index
+    df_sel.to_csv(
+        "data/filtered_fake_words.tsv",
+        sep="\t",
+        columns=out_cols,
+        index=False,
+        encoding="utf-8"
+    )
+
+    print(f"Saved {len(df_sel)} rows to filtered_fake_words.tsv")
+

@@ -19,6 +19,8 @@ def load_sign_dataset(filepath):
     df = pd.read_csv(filepath, usecols=used_cols, encoding="latin1")
     return df
 
+def checkNaNString(text:str)->bool:
+    return text.lower()=="nan" or text=="NA"
 
 def sign_similarity(row1, row2, feature_cols):
     """
@@ -29,8 +31,9 @@ def sign_similarity(row1, row2, feature_cols):
     for col in feature_cols:
         val1 = str(row1[col]).strip()
         val2 = str(row2[col]).strip()
-        if val1 == "NA" and val2 == "NA":
+        if checkNaNString(val1) and checkNaNString(val2):
             continue
+
         match = val1 == val2
         results.append((col, val1, val2, match))
     num_matches = sum(r[3] for r in results)
@@ -47,7 +50,7 @@ def sign_differences(row1, row2, feature_cols):
     for col in feature_cols:
         val1 = str(row1[col]).strip()
         val2 = str(row2[col]).strip()
-        if val1 == "NA" and val2 == "NA":
+        if checkNaNString(val1) and checkNaNString(val2):
             continue
         match = val1 != val2
         results.append((col, val1, val2, match))
@@ -139,8 +142,42 @@ if __name__ == "__main__":
     # Load dataset
     df = load_sign_dataset(file_path)
 
+    raw = """SelectedFingers.2.0,i
+Flexion.2.0,FullyOpen
+FlexionChange.2.0,0.0
+Spread.2.0,1.0
+SpreadChange.2.0,0.0
+ThumbPosition.2.0,Open
+ThumbContact.2.0,0.0
+SignType.2.0,OneHanded
+Movement.2.0,NA
+RepeatedMovement.2.0,1
+MajorLocation.2.0,Neutral
+MinorLocation.2.0,Neutral
+SecondMinorLocation.2.0,NA
+Contact.2.0,0
+NonDominantHandshape.2.0,NA
+UlnarRotation.2.0,1"""
+
+    d = {line.split(',', 1)[0]: line.split(',', 1)[1]
+         for line in raw.splitlines()}
+
+    s = pd.Series(d, name="value")
+
+    idx1 = 1054
+    num_matches, total_compared, results = sign_similarity(df.iloc[idx1], s, feature_cols)
+    num_differences, total_compared, results = sign_differences(df.iloc[idx1], s, feature_cols)
+
+    print(
+        f"Comparing row {idx1} (LemmaID={df.iloc[idx1]['LemmaID']}) and fake word):")
+    print(f"Matches: {num_matches}/{total_compared}")
+    print(f"Distance: {num_differences}/{total_compared}")
+
+    for feature, val1, val2, match in results:
+        print(f"{feature}: {val1} vs {val2} --> {'Match' if not match else 'Different'}")
+
     # Demo: Compare two rows (e.g., rows 2 and 3)
-    idx1, idx2 = 2000, 269
+    idx1, idx2 = 0, 1052
     num_matches, total_compared, results = sign_similarity(df.iloc[idx1], df.iloc[idx2], feature_cols)
     num_differences, total_compared, results = sign_differences(df.iloc[idx1], df.iloc[idx2], feature_cols)
 
@@ -149,7 +186,7 @@ if __name__ == "__main__":
     print(f"Matches: {num_matches}/{total_compared}")
     print(f"Distance: {num_differences}/{total_compared}")
     for feature, val1, val2, match in results:
-        print(f"{feature}: {val1} vs {val2} --> {'Match' if match else 'Different'}")
+        print(f"{feature}: {val1} vs {val2} --> {'Match' if not match else 'Different'}")
 
     print("\nVector of differences from input row to every row in the dataset:")
     input_row = df.iloc[idx1]
@@ -159,21 +196,18 @@ if __name__ == "__main__":
     n_exact_matches = number_of_x(input_row, df, feature_cols, lambda x: x == 0)
     print(f"Number of exact matches: {n_exact_matches}")
 
-    dist_full = distance_matrix_upper_parallel(df, feature_cols)
-    os.makedirs("data", exist_ok=True)
 
-    # write as a tab-separated text file (with row and column labels)
-    output_path = "data/distanceMatrix.txt"
-    dist_full.to_csv(output_path, sep="\t", na_rep="NA")
-    print(f"Distance matrix saved to {output_path}")
-
-    print(dist_full)
-
-    # for i in range(df.shape[0]):
-    #     n_within_1 = number_of_x(input_row, df, feature_cols, lambda x: x <= 1)
-    #     if n_within_1 > 1:
-    #         print(f"Row {i} has {n_within_1} matches within 1 difference")
-    #     else:
-    #         print(f"Row {i} has no matches within 1 difference")
+    # exit()
     #
-    # print("done")
+    # dist_full = distance_matrix_upper_parallel(df, feature_cols)
+    # os.makedirs("data", exist_ok=True)
+    #
+    # # write as a tab-separated text file (with row and column labels)
+    # output_path = "data/distanceMatrix.txt"
+    # dist_full.to_csv(output_path, sep="\t", na_rep="NA")
+    # print(f"Distance matrix saved to {output_path}")
+    #
+    # print(dist_full)
+
+
+
