@@ -162,6 +162,6 @@ if __name__ == "__main__":
         distance_matrix_file="data/distanceMatrix.txt",
         categories_file="data/Unique_Counts_and_Values_per_Column.csv",
         phonemic_df_file="data/signdata_slimmed.csv",
-        output_file="data/fake_words.txt"
+        output_file="data/fake_words.tsv"
     )
 
